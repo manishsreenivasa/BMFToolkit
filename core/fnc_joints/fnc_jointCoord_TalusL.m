@@ -1,0 +1,49 @@
+function model = fnc_jointCoord_TalusL (model,DoF_Types)
+% Bone Mesh Female Toolkit 
+% Licensed under the zlib license. See LICENSE for more details.
+
+LFt1MA = model(27).vertices_global(model(27).LandmarkIndices(1),:);
+LFt5MA = model(35).vertices_global(model(35).LandmarkIndices(1),:);
+
+% Talocrural Positive Y axis
+talocrural_l_pointMedial = ...
+    model(9).vertices_global(model(9).LandmarkIndices(3),:);
+talocrural_l_pointLateral = ...
+    model(11).vertices_global(model(11).LandmarkIndices(3),:);
+jointCenter_talocruralL_global = ...
+    mean([talocrural_l_pointLateral; talocrural_l_pointMedial]);
+
+vec_OY_talocrural = talocrural_l_pointLateral-talocrural_l_pointMedial;
+vec_OY_talocrural = vec_OY_talocrural./norm(vec_OY_talocrural);
+model(13).vec_OY_talocruralL = vec_OY_talocrural;
+vec_in_Talocrural_XY_plane = jointCenter_talocruralL_global -...
+    mean([LFt1MA;LFt5MA]);
+vec_in_Talocrural_XY_plane =...
+    vec_in_Talocrural_XY_plane./norm(vec_in_Talocrural_XY_plane);
+model(13).vec_in_Talocrural_XY_plane = vec_in_Talocrural_XY_plane;
+% Talocrural Positive Z axis
+vec_OZ_talocrural = cross(vec_OY_talocrural,vec_in_Talocrural_XY_plane);
+vec_OZ_talocrural = vec_OZ_talocrural./norm(vec_OZ_talocrural);
+model(13).vec_OZ_talocrural_right = vec_OZ_talocrural;
+% Talocrural Positive X axis
+vec_OX_talocrural = cross(vec_OY_talocrural,vec_OZ_talocrural);
+vec_OX_talocrural = vec_OX_talocrural./norm(vec_OX_talocrural);
+% Column-major rotation matrix from unit vectors
+jointAxes_talocruralL_global       = [[vec_OX_talocrural';0] ...
+    [vec_OY_talocrural';0] [vec_OZ_talocrural';0]...
+    [jointCenter_talocruralL_global';1]];
+jointAxes_talocruralL_in_tibiaL =...
+    [[jointAxes_talocruralL_global(1:3,1:3)'*...
+    model(9).joint_axes_global(1:3,1:3)]...
+    [jointCenter_talocruralL_global'-...
+    model(9).joint_axes_global(1:3,4)]; 0 0 0 1];
+model(13).joint_axes_global        = jointAxes_talocruralL_global;
+model(13).joint_axes_local         = jointAxes_talocruralL_in_tibiaL;
+model(13).parentID                 = 9;
+model(13).joint                    = DoF_Types.DoF_YROT;
+model(13).vertices_centered        = model(13).vertices_global -...
+    repmat(median(model(13).vertices_global),...
+    length(model(13).vertices_global), 1);
+model(13).mesh_offset = [max(model(13).vertices_centered(:,1))*0.7...
+    min(model(13).vertices_centered(:,2))*0.5...
+    max(model(13).vertices_centered(:,3))*0.15];

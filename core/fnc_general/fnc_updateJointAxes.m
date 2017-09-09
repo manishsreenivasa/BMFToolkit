@@ -1,0 +1,333 @@
+function [model] = fnc_updateJointAxes (model,scf)
+% Bone Mesh Female Toolkit 
+% Licensed under the zlib license. See LICENSE for more details.
+
+ROOT_axes = eye(4);
+DoF_Types.DoF_ROOT = [0 0 0 1 0 0; 0 0 0 0 1 0; 0 0 0 0 0 1; ...
+    1 0 0 0 0 0; 0 1 0 0 0 0; 0 0 1 0 0 0];
+DoF_Types.DoF_XTRANS = [0 0 0 1 0 0];
+DoF_Types.DoF_YTRANS = [0 0 0 0 1 0];
+DoF_Types.DoF_ZTRANS = [0 0 0 0 0 1];
+DoF_Types.DoF_XROT = [1 0 0 0 0 0];
+DoF_Types.DoF_YROT = [0 1 0 0 0 0];
+DoF_Types.DoF_ZROT = [0 0 1 0 0 0];
+
+unscaled_model = model;
+unscaled_femoralCenterR = ...
+    mean(model(2).vertices_global(model(2).femoralSocket,:));
+unscaled_femoralCenterL = ...
+    mean(model(3).vertices_global(model(3).femoralSocket,:));
+
+%% Sacrum
+nVert = length(model(1).vertices_global);
+med = repmat(median(model(1).vertices_global), nVert, 1);
+model(1).vertices_global  = ...
+    (model(1).vertices_global - med)*scf(1) + med*scf(1);
+model(1).vertices_centered  = model(1).vertices_centered*scf(1);
+model = fnc_jointCoord_Sacrum (model,DoF_Types,ROOT_axes);
+
+%% Pelvis R
+nVert = length(model(2).vertices_global);
+med = repmat(median(model(2).vertices_global), nVert, 1);
+model(2).vertices_global  = ...
+    (model(2).vertices_global - med)*scf(1) + med*scf(1);
+model(2).vertices_centered  = model(2).vertices_centered*scf(1);
+model = fnc_jointCoord_PelvisR (model,DoF_Types);
+
+%% Pelvis L
+nVert = length(model(3).vertices_global);
+med = repmat(median(model(3).vertices_global), nVert, 1);
+model(3).vertices_global  = ...
+    (model(3).vertices_global - med)*scf(1) + med*scf(1);
+model(3).vertices_centered  = model(3).vertices_centered*scf(1);
+model = fnc_jointCoord_PelvisL (model,DoF_Types);
+
+%% Femur R
+nVert = length(model(4).vertices_global);
+jointCenter_femurR_global = ...
+    mean(model(2).vertices_global(model(2).femoralSocket,:));
+med = repmat(unscaled_femoralCenterR, nVert, 1);
+model(4).vertices_global  = ...
+    (model(4).vertices_global - med)*scf(2) + ...
+    repmat(jointCenter_femurR_global,nVert,1);
+model(4).vertices_centered  = model(4).vertices_centered*scf(2);
+model = fnc_jointCoord_FemurR (model,DoF_Types);
+
+%% Femur L
+nVert = length(model(5).vertices_global);
+jointCenter_femurL_global =...
+    mean(model(3).vertices_global(model(3).femoralSocket,:));
+med = repmat(unscaled_femoralCenterL, nVert, 1);
+model(5).vertices_global  = ...
+    (model(5).vertices_global - med)*scf(3) + ...
+    repmat(jointCenter_femurL_global,nVert,1);
+model(5).vertices_centered  = model(5).vertices_centered*scf(3);
+model = fnc_jointCoord_FemurL (model,DoF_Types);
+
+%% Patella R
+nVert = length(model(6).vertices_global);
+med = repmat(unscaled_femoralCenterR, nVert, 1);
+model(6).vertices_global  = ...
+     (model(6).vertices_global - med)*scf(2) +...
+     repmat(jointCenter_femurR_global,nVert,1);
+model(6).vertices_centered          = model(6).vertices_centered*scf(2);
+model = fnc_jointCoord_PatellaR (model,DoF_Types);
+
+%% Patella L
+nVert = length(model(7).vertices_global);
+med = repmat(unscaled_femoralCenterL, nVert, 1);
+model(7).vertices_global  = ...
+    (model(7).vertices_global - med)*scf(3) +...
+    repmat(jointCenter_femurL_global,nVert,1);
+model(7).vertices_centered          = model(7).vertices_centered*scf(3);
+model = fnc_jointCoord_PatellaL (model,DoF_Types);
+
+%% Tibia R
+nVert = length(model(8).vertices_global);
+jointCenter_tibiaR_global = model(4).femur_pointCd_r;
+unscaled_tibialCenterR =repmat(model(8).joint_axes_global(1:3,4)',nVert,1);
+med = repmat(median(model(8).vertices_global),nVert,1);
+offset_tibiaR = repmat(jointCenter_tibiaR_global, nVert, 1)  +...
+    (med - unscaled_tibialCenterR)*scf(4);
+model(8).vertices_global  = ...
+    (model(8).vertices_global - med)*scf(4)...
+    + offset_tibiaR;
+model(8).vertices_centered = model(8).vertices_centered*scf(4);
+model = fnc_jointCoord_TibiaR (model,DoF_Types);
+
+%% Tibia L
+nVert = length(model(9).vertices_global);
+jointCenter_tibiaL_global = model(5).femur_pointCd_l;
+unscaled_tibialCenterL =repmat(model(9).joint_axes_global(1:3,4)',nVert,1);
+med = repmat(median(model(9).vertices_global),nVert,1);
+offset_tibiaL = repmat(jointCenter_tibiaL_global, nVert, 1)  +...
+    (med - unscaled_tibialCenterL)*scf(5);
+model(9).vertices_global  = ...
+    (model(9).vertices_global - med)*scf(5)...
+    + offset_tibiaL;
+model(9).vertices_centered = model(9).vertices_centered*scf(5);
+model = fnc_jointCoord_TibiaL (model,DoF_Types);
+
+%% Fibula R
+nVert = length(model(10).vertices_global);
+jointCenter_fibulaR_global = ...
+    model(8).vertices_global(model(8).LandmarkIndices(5),:);
+unscaled_fibulaCenterR =...
+    repmat(model(10).joint_axes_global(1:3,4)',nVert,1);
+med = repmat(median(model(10).vertices_global),nVert,1);
+offset_fibulaR = repmat(jointCenter_fibulaR_global, nVert, 1) +...
+    (med - unscaled_fibulaCenterR)*scf(4);
+model(10).vertices_global  = ...
+    (model(10).vertices_global - med)*scf(4)...
+    + offset_fibulaR;
+model(10).vertices_centered        = model(10).vertices_centered*scf(4);
+model = fnc_jointCoord_FibulaR (model,DoF_Types);
+ 
+%% Fibula L
+nVert = length(model(11).vertices_global);
+jointCenter_fibulaL_global = ...
+    model(9).vertices_global(model(9).LandmarkIndices(5),:);
+unscaled_fibulaCenterL =...
+    repmat(model(11).joint_axes_global(1:3,4)',nVert,1);
+med = repmat(median(model(11).vertices_global),nVert,1);
+offset_fibulaL = repmat(jointCenter_fibulaL_global, nVert, 1) +...
+    (med - unscaled_fibulaCenterL)*scf(5);
+model(11).vertices_global  = ...
+    (model(11).vertices_global - med)*scf(5)...
+    + offset_fibulaL;
+model(11).vertices_centered        = model(11).vertices_centered*scf(5);
+model = fnc_jointCoord_FibulaL (model,DoF_Types);
+
+%% Talus R
+talocrural_r_pointMedial = ...
+    model(8).vertices_global(model(8).LandmarkIndices(3),:);
+talocrural_r_pointLateral = ...
+    model(10).vertices_global(model(10).LandmarkIndices(3),:);
+jointCenter_talocruralR_global = mean([talocrural_r_pointLateral;...
+    talocrural_r_pointMedial]);
+
+nVert = length(model(12).vertices_global);
+unscaled_talusCenterR = ...
+    repmat(model(12).joint_axes_global(1:3,4)',nVert,1);
+med = repmat(median(model(12).vertices_global),nVert,1);
+offset_talusR = repmat(jointCenter_talocruralR_global, nVert, 1) +...
+    (med - unscaled_talusCenterR)*scf(6);
+model(12).vertices_global  = ...
+    (model(12).vertices_global - med)*scf(6)...
+    + offset_talusR;
+model(12).vertices_centered  = model(12).vertices_centered*scf(6);
+model(12).mesh_offset = [max(model(12).vertices_centered(:,1))*0.7 ...
+    max(model(12).vertices_centered(:,2))*0.5 ...
+    max(model(12).vertices_centered(:,3))*0.15];
+% Talocrural Positive Y axis
+vec_OY_talocrural = talocrural_r_pointMedial - talocrural_r_pointLateral;
+vec_OY_talocrural = vec_OY_talocrural./norm(vec_OY_talocrural);
+vec_OY_talocruralR = vec_OY_talocrural;
+vec_in_Talocrural_XY_plane = model(12).vec_in_Talocrural_XY_plane;
+% Talocrural Positive Z axis
+vec_OZ_talocrural = cross(vec_OY_talocrural,vec_in_Talocrural_XY_plane);
+vec_OZ_talocrural = vec_OZ_talocrural./norm(vec_OZ_talocrural);
+% Talocrural Positive X axis
+vec_OX_talocrural = cross(vec_OY_talocrural, vec_OZ_talocrural);
+vec_OX_talocrural = vec_OX_talocrural./norm(vec_OX_talocrural);
+% Column-major rotation matrix from unit vectors
+jointAxes_talocruralR_global       = [[vec_OX_talocrural';0] ...
+    [vec_OY_talocrural';0] [vec_OZ_talocrural';0] ...
+    [jointCenter_talocruralR_global';1]];
+jointAxes_talocruralR_in_tibiaR =...
+    [[jointAxes_talocruralR_global(1:3,1:3)'*...
+    model(8).joint_axes_global(1:3,1:3)] ...
+    [jointCenter_talocruralR_global'-model(8).joint_axes_global(1:3,4)];...
+    0 0 0 1];
+model(12).joint_axes_global        = jointAxes_talocruralR_global;
+model(12).joint_axes_local         = jointAxes_talocruralR_in_tibiaR;
+
+%% Talus L
+talocrural_l_pointMedial = ...
+    model(9).vertices_global(model(9).LandmarkIndices(3),:);
+talocrural_l_pointLateral = ...
+model(11).vertices_global(model(11).LandmarkIndices(3),:);
+jointCenter_talocruralL_global = mean([talocrural_l_pointLateral; ...
+    talocrural_l_pointMedial]);
+
+nVert = length(model(13).vertices_global);
+unscaled_talusCenterL = ...
+    repmat(model(13).joint_axes_global(1:3,4)',nVert,1);
+med = repmat(median(model(13).vertices_global),nVert,1);
+offset_talusL = repmat(jointCenter_talocruralL_global, nVert, 1) +...
+    (med - unscaled_talusCenterL)*scf(7);
+model(13).vertices_global  = ...
+    (model(13).vertices_global - med)*scf(7)...
+    + offset_talusL;
+model(13).vertices_centered        = model(13).vertices_centered*scf(7);
+model(13).mesh_offset = [max(model(13).vertices_centered(:,1))*0.7 ...
+    min(model(13).vertices_centered(:,2))*0.5 ...
+    max(model(13).vertices_centered(:,3))*0.15];
+% Talocrural Positive Y axis
+vec_OY_talocrural = talocrural_l_pointLateral-talocrural_l_pointMedial;
+vec_OY_talocrural = vec_OY_talocrural./norm(vec_OY_talocrural);
+vec_OY_talocruralL = vec_OY_talocrural;
+vec_in_Talocrural_XY_plane = model(13).vec_in_Talocrural_XY_plane;
+% Talocrural Positive Z axis
+vec_OZ_talocrural = cross(vec_OY_talocrural,vec_in_Talocrural_XY_plane);
+vec_OZ_talocrural = vec_OZ_talocrural./norm(vec_OZ_talocrural);
+% Talocrural Positive X axis
+vec_OX_talocrural = cross(vec_OY_talocrural,vec_OZ_talocrural);
+vec_OX_talocrural = vec_OX_talocrural./norm(vec_OX_talocrural);
+% Column-major rotation matrix from unit vectors
+jointAxes_talocruralL_global       = [[vec_OX_talocrural';0] ...
+    [vec_OY_talocrural';0] [vec_OZ_talocrural';0] ...
+    [jointCenter_talocruralL_global';1]];
+jointAxes_talocruralL_in_tibiaL    = ...
+    [[jointAxes_talocruralL_global(1:3,1:3)'*...
+    model(9).joint_axes_global(1:3,1:3)] ...
+    [jointCenter_talocruralL_global'-model(9).joint_axes_global(1:3,4)];...
+    0 0 0 1];
+model(13).joint_axes_global        = jointAxes_talocruralL_global;
+model(13).joint_axes_local         = jointAxes_talocruralL_in_tibiaL;
+
+%% Calcaneus R
+nVert = length(model(14).vertices_global);
+unscaled_calcaneusCenterR = ...
+    repmat(model(14).joint_axes_global(1:3,4)',nVert,1);
+med = repmat(median(model(14).vertices_global),nVert,1);
+offset_calcaneusR = repmat(jointCenter_talocruralR_global, nVert, 1) +...
+    (med - unscaled_calcaneusCenterR)*scf(6);
+model(14).vertices_global  = ...
+    (model(14).vertices_global - med)*scf(6)...
+    + offset_calcaneusR;
+model(14).vertices_centered        = model(14).vertices_centered*scf(6);
+model(14).mesh_offset = [0.0 max(model(14).vertices_centered(:,2))*0.2...
+    min(model(14).vertices_centered(:,3))*1.2];
+% Talocalcaneal Positive X axis
+vec_OX_talocalcaneal = model(14).vec_OX_talocalcaneal;
+vec_OY_talocalcaneal = vec_OY_talocruralR;
+vec_OZ_talocalcaneal = cross(vec_OX_talocalcaneal,vec_OY_talocalcaneal);
+vec_OZ_talocalcaneal = vec_OZ_talocalcaneal./norm(vec_OZ_talocalcaneal);
+vec_OY_talocalcaneal = cross(vec_OZ_talocalcaneal,vec_OX_talocalcaneal);
+% Column-major rotation matrix from unit vectors
+jointAxes_talocalcanealR_global    = [[vec_OX_talocalcaneal';0] ...
+    [vec_OY_talocalcaneal';0] [vec_OZ_talocalcaneal';0] ...
+    [jointCenter_talocruralR_global';1]];
+jointAxes_talocalcanealR_in_talocruralR = ...
+    [[jointAxes_talocalcanealR_global(1:3,1:3)'*...
+    jointAxes_talocruralR_global(1:3,1:3)] [0.0 0.0 0.0]'; 0 0 0 1];
+model(14).joint_axes_global        = jointAxes_talocalcanealR_global;
+model(14).joint_axes_local = jointAxes_talocalcanealR_in_talocruralR;
+model(14).joint_axes_local(1:3,1:3) =model(14).joint_axes_local(1:3,1:3)...
+    * rot_y(pi/12);
+ 
+%% Calcaneus L
+nVert = length(model(15).vertices_global);
+unscaled_calcaneusCenterL = ...
+    repmat(model(15).joint_axes_global(1:3,4)',nVert,1);
+med = repmat(median(model(15).vertices_global),nVert,1);
+offset_calcaneusL = repmat(jointCenter_talocruralL_global, nVert, 1) +...
+    (med - unscaled_calcaneusCenterL)*scf(7);
+model(15).vertices_global  = ...
+    (model(15).vertices_global - med)*scf(7)...
+    + offset_calcaneusL;
+model(15).vertices_centered        = model(15).vertices_centered*scf(7);
+model(15).mesh_offset = [0.0 -max(model(15).vertices_centered(:,2))*0.2...
+    min(model(15).vertices_centered(:,3))*1.2];
+% Talocalcaneal Positive X axis
+vec_OX_talocalcaneal = model(15).vec_OX_talocalcaneal;
+vec_OY_talocalcaneal = vec_OY_talocruralL;
+vec_OZ_talocalcaneal = cross(vec_OX_talocalcaneal,vec_OY_talocalcaneal);
+vec_OZ_talocalcaneal = vec_OZ_talocalcaneal./norm(vec_OZ_talocalcaneal);
+% Column-major rotation matrix from unit vectors
+jointAxes_talocalcanealL_global    = [[vec_OX_talocalcaneal';0] ...
+    [vec_OY_talocalcaneal';0] [vec_OZ_talocalcaneal';0] ...
+    [jointCenter_talocruralL_global';1]];
+jointAxes_talocalcanealL_in_talocruralL = ...
+    [[jointAxes_talocalcanealL_global(1:3,1:3)'*...
+    jointAxes_talocruralL_global(1:3,1:3)] [0 0 0]'; 0 0 0 1];
+model(15).joint_axes_global = jointAxes_talocalcanealL_global;
+model(15).joint_axes_local = jointAxes_talocalcanealL_in_talocruralL;
+model(15).joint_axes_local(1:3,1:3) =model(15).joint_axes_local(1:3,1:3)...
+    * rot_y(pi/12);
+
+%% Remaining Feet meshes
+for meshID = 16:2:63
+    foot_offsetR = unscaled_model(meshID).joint_axes_global(1:3,4) -...
+        unscaled_model(14).joint_axes_global(1:3,4);
+    model(meshID).joint_axes_global(1:3,4) = ...
+        model(14).joint_axes_global(1:3,4) + foot_offsetR*scf(6);
+    nVert = length(model(meshID).vertices_global);
+    med = repmat(median(model(meshID).vertices_global),nVert,1);
+    model(meshID).vertices_global  = ...
+        (model(meshID).vertices_global - med)*scf(6) ...
+    + repmat(model(meshID).joint_axes_global(1:3,4)',nVert,1);
+    model(meshID).vertices_centered =...
+        model(meshID).vertices_centered*scf(6);
+    model(meshID).joint_axes_local(1:3,4) = ...
+        model(meshID).joint_axes_global(1:3,4) - ...
+        model(model(meshID).parentID).joint_axes_global(1:3,4);
+    
+    foot_offsetL = unscaled_model(meshID+1).joint_axes_global(1:3,4)...
+        - unscaled_model(15).joint_axes_global(1:3,4);
+    model(meshID+1).joint_axes_global(1:3,4) = ...
+        model(15).joint_axes_global(1:3,4) + foot_offsetL*scf(7);
+    nVert = length(model(meshID+1).vertices_global);
+    med = repmat(median(model(meshID+1).vertices_global),nVert,1);
+    model(meshID+1).vertices_global  = ...
+        (model(meshID+1).vertices_global - med)*scf(7) ...
+    + repmat(model(meshID+1).joint_axes_global(1:3,4)',nVert,1);
+    model(meshID+1).vertices_centered = ...
+        model(meshID+1).vertices_centered*scf(7);
+    model(meshID+1).joint_axes_local(1:3,4)  = ...
+        model(meshID+1).joint_axes_global(1:3,4) - ...
+        model(model(meshID+1).parentID).joint_axes_global(1:3,4);
+end
+
+% Update landmarks
+for meshID = 1:length(model)
+    for l_idx = 1:length(model(meshID).LandmarkIndices)
+        model(meshID).landmarks(l_idx,:) = ...
+            model(meshID).vertices_global...
+            (model(meshID).LandmarkIndices(l_idx),:)-...
+            model(meshID).joint_axes_global(1:3,4)';
+    end
+    model(meshID).mesh_dimension = max(model(meshID).vertices_centered)...
+        - min(model(meshID).vertices_centered);
+end
